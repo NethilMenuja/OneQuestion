@@ -235,55 +235,70 @@ const handleLike = async (answerId: number) => {
   }
 };
 const handleSubmit = async (): Promise<void> => {
-    if (!question) {
-      return;
-    }
-     
+  if (!question) {
+    return;
+  }
 
-    const cleanAnswer = answerText.trim();
+  const cleanAnswer = answerText.trim();
 
-    if (!userName.trim()) {
-  setMessage("Please enter your name.");
-  return;
-}
+  if (!userName.trim()) {
+    setMessage("Please enter your name.");
+    return;
+  }
 
-if (!country) {
-  setMessage("Please select your country.");
-  return;
-}
+  if (!country) {
+    setMessage("Please select your country.");
+    return;
+  }
 
-if (!cleanAnswer) {
-  setMessage("Please write an answer first.");
-  return;
-}
+  if (!cleanAnswer) {
+    setMessage("Please write an answer first.");
+    return;
+  }
 
-    setPosting(true);
-    setMessage("");
+  // If user is not signed in, save the answer and go to login
+  if (!user) {
+    localStorage.setItem(
+      "pendingAnswer",
+      JSON.stringify({
+        questionId: question.id,
+        answer: cleanAnswer,
+        name: userName.trim(),
+        country: country,
+      })
+    );
 
-    const { error } = await supabase.from("answers").insert({
-      question_id: question.id,
-      answer: cleanAnswer,
-      name: userName.trim() || "Guest",
-      country: country || "🌍",
-      user_id: null,
-    });
+    window.location.href = "/signup";
+    return;
+  }
 
-    if (error) {
-      console.error("Post answer error:", error);
-      setMessage("Could not post your answer.");
-      setPosting(false);
-      return;
-    }
+  setPosting(true);
+  setMessage("");
 
-    setAnswerText("");
-    setUserName("");
-    setCountry("");
-    setMessage("Your answer was posted! ❤️");
+  const { error } = await supabase.from("answers").insert({
+    question_id: question.id,
+    answer: cleanAnswer,
+    name: userName.trim(),
+    country: country,
+    user_id: user.id,
+  });
 
-    await loadData();
-
+  if (error) {
+    console.error("Post answer error:", error);
+    setMessage("Could not post your answer.");
     setPosting(false);
-  };
+    return;
+  }
+
+  setAnswerText("");
+  setUserName("");
+  setCountry("");
+  setMessage("Your answer was posted! ❤️");
+
+  await loadData();
+
+  setPosting(false);
+};
 
   const countries = new Set(
   answers

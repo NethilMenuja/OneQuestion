@@ -9,34 +9,68 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setMessage("Please enter your email and password.");
-      return;
-    }
+const handleLogin = async () => {
+  if (!email || !password) {
+    setMessage("Please enter your email and password.");
+    return;
+  }
 
-    setLoading(true);
-    setMessage("");
+  setLoading(true);
+  setMessage("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-    if (error) {
-      setMessage(error.message);
+  if (error) {
+    setMessage(error.message);
+    setLoading(false);
+    return;
+  }
+
+  // Check if the user had an answer waiting to be posted
+  const pendingAnswer = localStorage.getItem("pendingAnswer");
+
+  if (pendingAnswer && data.user) {
+    try {
+      const savedAnswer = JSON.parse(pendingAnswer);
+
+      const { error: postError } = await supabase
+        .from("answers")
+        .insert({
+          question_id: savedAnswer.questionId,
+          answer: savedAnswer.answer,
+          name: savedAnswer.name,
+          country: savedAnswer.country,
+          user_id: data.user.id,
+        });
+
+      if (postError) {
+        console.error("Pending answer error:", postError);
+        setMessage("Login successful, but your answer could not be posted.");
+        setLoading(false);
+        return;
+      }
+
+      // Remove the saved answer after successful posting
+      localStorage.removeItem("pendingAnswer");
+    } catch (error) {
+      console.error("Pending answer error:", error);
+      setMessage("Login successful, but your answer could not be posted.");
       setLoading(false);
       return;
     }
+  }
 
-    setMessage("Login successful!");
+  setMessage("Login successful!");
 
-    window.location.href = "/";
-  };
+  window.location.href = "/";
+};
 
   return (
-    <main className="min-h-screen bg-black px-6 py-16 text-white">
-      <section className="mx-auto max-w-md">
+    <main className="min-h-screen bg-black px-4 py-8 text-white sm:px-6 sm:py-16">
+      <section className="mx-auto w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold">ONEQUESTION</h1>
           <p className="mt-2 text-white/50">Login to your account</p>
