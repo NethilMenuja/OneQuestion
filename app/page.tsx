@@ -22,6 +22,17 @@ type Question = {
   id: number;
   question: string;
 };
+const countryFlags: Record<string, string> = {
+  "Sri Lanka": "lk",
+  India: "in",
+  "United States": "us",
+  "United Kingdom": "gb",
+  Australia: "au",
+  Canada: "ca",
+  Japan: "jp",
+  Germany: "de",
+  France: "fr",
+};
 
 export default function Home() {
   const [question, setQuestion] = useState<Question | null>(null);
@@ -506,9 +517,19 @@ const worldwide = Math.round((countries / 195) * 100);
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 text-[10px]">
-                        {item.country}
-                      </div>
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
+  {countryFlags[item.country] ? (
+    <img
+      src={`https://flagcdn.com/w80/${countryFlags[item.country]}.png`}
+      alt={item.country}
+      className="h-full w-full object-cover"
+    />
+  ) : (
+    <div className="flex h-full w-full items-center justify-center text-xl">
+      🌍
+    </div>
+  )}
+</div>
 
                       <div className="min-w-0 flex-1">
                         <p className="font-medium truncate">
