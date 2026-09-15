@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import SkyBackground from "./SkyBackground";
 
 type User = {
   id: string;
@@ -165,6 +166,28 @@ setAnswers(
   useEffect(() => {
     loadData();
   }, []);
+  useEffect(() => {
+  let lastDate = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  const checkDate = window.setInterval(() => {
+    const today = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    if (today !== lastDate) {
+      lastDate = today;
+      loadData();
+    }
+  }, 30000);
+
+  return () => window.clearInterval(checkDate);
+}, []);
 
 const handleLike = async (answerId: number) => {
   if (!user) {
@@ -320,8 +343,9 @@ const handleSubmit = async (): Promise<void> => {
 const worldwide = Math.round((countries / 195) * 100);
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-black text-white">
-      <div className="mx-auto max-w-5xl px-4 py-10">
+    <main className="relative min-h-screen w-full overflow-x-hidden bg-transparent text-white">
+      <SkyBackground />
+      <div className="relative z-10 mx-auto max-w-5xl px-4 py-10">
         {/* HEADER */}
         <header className="mb-16">
   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -402,13 +426,13 @@ const worldwide = Math.round((countries / 195) * 100);
                value={userName}
                onChange={(e) => setUserName(e.target.value)}
                placeholder="Your name..."
-               className="w-full mb-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-lg text-white outline-none placeholder:text-white/30"
+              className="w-full mb-3 rounded-2xl border border-white/20 bg-black/20 p-4 text-lg text-white outline-none backdrop-blur-md transition focus:border-white/40 focus:bg-black/25 placeholder:text-white/50"
             />
 
             <select
   value={country}
   onChange={(e) => setCountry(e.target.value)}
-  className="w-full mb-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-lg text-white outline-none"
+  className="w-full mb-3 rounded-2xl border border-white/20 bg-black/20 p-4 text-lg text-white outline-none backdrop-blur-md transition focus:border-white/40 focus:bg-black/25"
 >
   <option value="" className="bg-black">
     Select your country...
@@ -430,7 +454,7 @@ const worldwide = Math.round((countries / 195) * 100);
               onChange={(e) => setAnswerText(e.target.value)}
               placeholder="Write your answer..."
               rows={6}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-white/5 p-5 text-lg outline-none transition placeholder:text-white/30 focus:border-white/30"
+              className="w-full resize-none rounded-2xl border border-white/20 bg-black/20 p-5 text-lg text-white outline-none backdrop-blur-md transition focus:border-white/40 focus:bg-black/25 placeholder:text-white/50"
             />
 
             <div className="mt-4 flex flex-col items-center gap-3">
@@ -483,7 +507,7 @@ const worldwide = Math.round((countries / 195) * 100);
         </section>
 
         {/* ANSWERS */}
-        <section>
+        <section className="[overflow-anchor:none]">
           <div className="mb-6 flex items-center justify-between">
             <h3 className="text-xl font-semibold">
               Community Answers
@@ -512,9 +536,9 @@ const worldwide = Math.round((countries / 195) * 100);
             <div className="space-y-4">
               {answers.map((item) => (
                 <article
-                  key={item.id}
-                  className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6"
-                >
+  key={item.id}
+  className="min-w-0 transform-gpu rounded-2xl border border-white/15 bg-black/30 p-4 sm:p-6 backdrop-blur-sm"
+>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
