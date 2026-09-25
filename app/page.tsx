@@ -2472,7 +2472,7 @@ export default function Home() {
             {/* MORE */}
             <div
               className="relative shrink-0"
-              onMouseEnter={() => setMoreMenuOpen(true)}
+              onClick={() => setMoreMenuOpen((v) => !v)}
             >
               <button
                 type="button"
@@ -2491,12 +2491,12 @@ export default function Home() {
 
               {/* MORE DROPDOWN */}
               <div
-                onMouseLeave={() => setMoreMenuOpen(false)}
-                className={`absolute right-0 top-full z-[99999] w-52 origin-top-right overflow-hidden rounded-2xl border border-white/10 bg-[#080808]/95 p-2 shadow-2xl backdrop-blur-xl transition-all duration-200 ${
-                  moreMenuOpen
-                    ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-                    : "pointer-events-none -translate-y-2 scale-95 opacity-0"
-                }`}
+                
+                className={`fixed right-4 top-32 z-[999999] w-52 origin-top-right overflow-hidden rounded-2xl border border-white/10 bg-[#080808]/95 p-2 shadow-2xl backdrop-blur-xl transition-all duration-200 sm:absolute sm:right-0 sm:top-full sm:mt-2 ${
+  moreMenuOpen
+    ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+    : "pointer-events-none -translate-y-2 scale-95 opacity-0"
+}`}
               >
 
                 {/* ARCHIVE */}
