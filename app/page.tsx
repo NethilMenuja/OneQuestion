@@ -2427,7 +2427,7 @@ export default function Home() {
       {/* NAVIGATION */}
       {user && (
         <div className="relative z-[99999] w-full max-w-full overflow-visible">
-          <div className="relative z-[99999] flex w-full min-w-0 items-center justify-start gap-2 sm:w-full sm:min-w-0 sm:flex-wrap sm:justify-center">
+          <div className="relative z-[99999] flex w-full min-w-0 items-center justify-start gap-2 overflow-x-auto pb-1 sm:w-full sm:min-w-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0">
 
             {/* HOME */}
             <a
