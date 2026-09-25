@@ -1,12 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       return Response.json(
-        { error: "GEMINI_API_KEY is missing" },
+        { error: "OPENROUTER_API_KEY is missing" },
         { status: 500 }
       );
     }
@@ -25,13 +23,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash",
-    });
-
-    const result = await model.generateContent(`
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "ONEQUESTION",
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages: [
+            {
+              role: "user",
+              content: `
 You are an idea assistant for ONEQUESTION, a social Q&A website.
 
 The user needs help thinking of an answer to this question:
@@ -47,9 +54,28 @@ Rules:
 - Do not write the final answer for the user.
 - Each idea should be 1-2 sentences maximum.
 - Return ONLY a JSON array of 3 strings.
-`);
+`,
+            },
+          ],
+        }),
+      }
+    );
 
-    const raw = result.response.text().trim();
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("OpenRouter answer ideas error:", data);
+
+      throw new Error(
+        data?.error?.message || "OpenRouter request failed"
+      );
+    }
+
+    const raw = data?.choices?.[0]?.message?.content?.trim();
+
+    if (!raw) {
+      throw new Error("Empty AI response");
+    }
 
     const cleaned = raw
       .replace(/^```json\s*/i, "")

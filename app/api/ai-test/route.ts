@@ -1,34 +1,69 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
-      return Response.json(
-        { error: "GEMINI_API_KEY is missing" },
+      return NextResponse.json(
+        {
+          success: false,
+          error: "OPENROUTER_API_KEY is missing",
+        },
         { status: 500 }
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash",
-    });
-
-    const result = await model.generateContent(
-      "Reply with exactly: ONEQUESTION AI WORKS"
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "ONEQUESTION",
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages: [
+            {
+              role: "user",
+              content: "Reply with exactly: ONEQUESTION AI WORKS",
+            },
+          ],
+        }),
+      }
     );
 
-    const text = result.response.text();
+    const data = await response.json();
 
-    return Response.json({ success: true, text });
+    if (!response.ok) {
+      console.error("OpenRouter error:", data);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: data?.error?.message || "OpenRouter request failed",
+        },
+        { status: response.status }
+      );
+    }
+
+    const text = data?.choices?.[0]?.message?.content || "";
+
+    return NextResponse.json({
+      success: true,
+      text,
+    });
   } catch (error) {
-    console.error("Gemini test error:", error);
+    console.error("AI test error:", error);
 
-    return Response.json(
-      { error: "Gemini API test failed" },
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Could not connect to OpenRouter",
+      },
       { status: 500 }
     );
   }

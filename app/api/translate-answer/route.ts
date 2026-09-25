@@ -1,12 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       return Response.json(
-        { error: "GEMINI_API_KEY is missing" },
+        { error: "OPENROUTER_API_KEY is missing" },
         { status: 500 }
       );
     }
@@ -39,13 +37,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash",
-    });
-
-    const result = await model.generateContent(`
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "ONEQUESTION",
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages: [
+            {
+              role: "user",
+              content: `
 Translate this ONEQUESTION community answer into ${language}.
 
 Rules:
@@ -57,9 +64,25 @@ Rules:
 
 Answer:
 ${answer}
-`);
+`,
+            },
+          ],
+        }),
+      }
+    );
 
-    const translated = result.response.text().trim();
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("OpenRouter translate error:", data);
+
+      throw new Error(
+        data?.error?.message || "OpenRouter request failed"
+      );
+    }
+
+    const translated =
+      data?.choices?.[0]?.message?.content?.trim();
 
     if (!translated) {
       throw new Error("Empty translation");

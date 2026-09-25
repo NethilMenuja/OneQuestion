@@ -1,12 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       return Response.json(
-        { error: "GEMINI_API_KEY is missing" },
+        { error: "OPENROUTER_API_KEY is missing" },
         { status: 500 }
       );
     }
@@ -35,12 +33,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash",
-    });
-
     const prompt = `
 You are the writing assistant for ONEQUESTION, a social Q&A website.
 
@@ -63,11 +55,40 @@ User's answer:
 ${answer}
 `;
 
-    const result =
-      await model.generateContent(prompt);
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "ONEQUESTION",
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("OpenRouter improve answer error:", data);
+
+      throw new Error(
+        data?.error?.message || "OpenRouter request failed"
+      );
+    }
 
     const improved =
-      result.response.text().trim();
+      data?.choices?.[0]?.message?.content?.trim();
 
     if (!improved) {
       return Response.json(

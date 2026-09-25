@@ -1,12 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       return Response.json(
-        { error: "GEMINI_API_KEY is missing" },
+        { error: "OPENROUTER_API_KEY is missing" },
         { status: 500 }
       );
     }
@@ -30,13 +28,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash",
-    });
-
-    const result = await model.generateContent(`
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "ONEQUESTION",
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages: [
+            {
+              role: "user",
+              content: `
 You are the follow-up question assistant for ONEQUESTION.
 
 Original question:
@@ -53,9 +60,25 @@ Rules:
 - Do not make it too long.
 - Do not ask for private or sensitive information.
 - Return ONLY the question.
-`);
+`,
+            },
+          ],
+        }),
+      }
+    );
 
-    const followUp = result.response.text().trim();
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("OpenRouter follow-up error:", data);
+
+      throw new Error(
+        data?.error?.message || "OpenRouter request failed"
+      );
+    }
+
+    const followUp =
+      data?.choices?.[0]?.message?.content?.trim();
 
     if (!followUp) {
       throw new Error("Empty follow-up question");
