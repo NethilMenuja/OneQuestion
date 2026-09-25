@@ -13,6 +13,7 @@ type Question = {
 type Answer = {
   id: number;
   question_id: number;
+  user_id: string;
   answer: string;
   name: string;
   country: string;
@@ -55,7 +56,7 @@ export default function ExplorePage() {
 
     const { data: answerData, error: answerError } = await supabase
       .from("answers")
-      .select("id, question_id, answer, name, country, created_at")
+      .select("id, question_id, user_id, answer, name, country, created_at")
       .order("created_at", { ascending: false });
 
     if (answerError) {
@@ -104,12 +105,12 @@ export default function ExplorePage() {
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-5xl px-5 py-10">
         <div className="mb-10">
-<a
-  href="/"
-  className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
->
-  ← Back to ONEQUESTION
-</a>
+          <a
+            href="/"
+            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+          >
+            ← Back to ONEQUESTION
+          </a>
 
           <h1 className="mt-6 text-4xl font-bold">
             Explore
@@ -133,57 +134,62 @@ export default function ExplorePage() {
             {questions.map((question, index) => {
               const questionAnswers = getAnswers(question.id);
 
-return (
-  <ScrollReveal
-    key={question.id}
-    delay={index * 100}
-  >
-    <section
-      className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md"
-    >
-                  <div className="mb-5">
-                    <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-                      {question.question_date}
-                    </p>
+              return (
+                <ScrollReveal
+                  key={question.id}
+                  delay={index * 100}
+                >
+                  <section
+                    className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md"
+                  >
+                    <div className="mb-5">
+                      <p className="text-xs uppercase tracking-[0.25em] text-white/40">
+                        {question.question_date}
+                      </p>
 
-                    <h2 className="mt-3 text-2xl font-semibold leading-tight">
-                      {question.question}
-                    </h2>
-                  </div>
-
-                  {questionAnswers.length === 0 ? (
-                    <p className="text-white/40">
-                      No answers yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {questionAnswers.map((answer) => (
-                        <div
-                          key={answer.id}
-                          className="rounded-2xl border border-white/10 bg-black/20 p-5"
-                        >
-                          <p className="text-base leading-7 text-white/90">
-                            {answer.answer}
-                          </p>
-
-                          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/50">
-                            <span>{answer.name}</span>
-
-                            <span>•</span>
-
-                            <span>{answer.country}</span>
-
-                            <span>•</span>
-
-                            <span>
-                              ❤️ {answer.likes || 0}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                      <h2 className="mt-3 text-2xl font-semibold leading-tight">
+                        {question.question}
+                      </h2>
                     </div>
-                  )}
-                </section>
+
+                    {questionAnswers.length === 0 ? (
+                      <p className="text-white/40">
+                        No answers yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {questionAnswers.map((answer) => (
+                          <div
+                            key={answer.id}
+                            className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                          >
+                            <p className="text-base leading-7 text-white/90">
+                              {answer.answer}
+                            </p>
+
+                            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/50">
+                              <a
+                                href={`/profile/${answer.user_id}`}
+                                className="font-medium text-white/70 transition hover:text-white hover:underline"
+                              >
+                                {answer.name}
+                              </a>
+
+                              <span>•</span>
+
+                              <span>{answer.country}</span>
+
+                              <span>•</span>
+
+                              <span>
+                                ❤️ {answer.likes || 0}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
                 </ScrollReveal>
               );
             })}

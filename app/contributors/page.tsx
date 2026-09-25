@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import ScrollReveal from "../ScrollReveal";
+import SkyBackground from "../SkyBackground";
 
 type Contributor = {
   name: string;
@@ -17,296 +19,105 @@ type Answer = {
   likes: number;
 };
 
-export default function ContributorsPage() {
-  const [contributors, setContributors] = useState<Contributor[]>([]);
-  const [openContributor, setOpenContributor] = useState<string | null>(null);
-  const [contributorAnswers, setContributorAnswers] = useState<
-    Record<string, Answer[]>
-  >({});
-  const [loadingAnswers, setLoadingAnswers] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+/* =========================================================
+   COUNTRY FLAGS
+   Real flag images — NO EMOJIS
+========================================================= */
 
-  useEffect(() => {
-    loadContributors();
-  }, []);
+const countryCodes: Record<string, string> = {
+  "Sri Lanka": "lk",
+  India: "in",
+  "United States": "us",
+  "United Kingdom": "gb",
+  Australia: "au",
+  Canada: "ca",
+  Japan: "jp",
+  Germany: "de",
+  France: "fr",
+};
 
-  async function loadContributors() {
-    setLoading(true);
+/* =========================================================
+   FLAG IMAGE
+========================================================= */
 
-    const { data: answerData, error: answerError } = await supabase
-      .from("answers")
-      .select("id, name, country");
+function CountryFlag({
+  country,
+  size = 48,
+}: {
+  country: string;
+  size?: number;
+}) {
+  const code = countryCodes[country];
 
-    if (answerError) {
-      console.error("Contributors error:", answerError);
-      setLoading(false);
-      return;
-    }
-
-    if (!answerData || answerData.length === 0) {
-      setContributors([]);
-      setLoading(false);
-      return;
-    }
-
-    const answerIds = answerData.map((item) => item.id);
-
-    const { data: likesData, error: likesError } = await supabase
-      .from("likes")
-      .select("answer_id")
-      .in("answer_id", answerIds);
-
-    if (likesError) {
-      console.error("Likes error:", likesError);
-    }
-
-    const likeCounts: Record<number, number> = {};
-
-    (likesData || []).forEach((like) => {
-      likeCounts[like.answer_id] =
-        (likeCounts[like.answer_id] || 0) + 1;
-    });
-
-    const contributorMap: Record<
-      string,
-      {
-        name: string;
-        country: string;
-        answers: number;
-        likes: number;
-      }
-    > = {};
-
-    answerData.forEach((item) => {
-      const key = `${item.name}__${item.country}`;
-
-      if (!contributorMap[key]) {
-        contributorMap[key] = {
-          name: item.name,
-          country: item.country,
-          answers: 0,
-          likes: 0,
-        };
-      }
-
-      contributorMap[key].answers += 1;
-      contributorMap[key].likes += likeCounts[item.id] || 0;
-    });
-
-    const result = Object.values(contributorMap).sort(
-      (a, b) => b.answers - a.answers
+  if (!code) {
+    return (
+      <div
+        className="
+          flex
+          shrink-0
+          items-center
+          justify-center
+          rounded-full
+          border border-white/10
+          bg-white/[0.07]
+          text-sm
+          text-white/50
+        "
+        style={{
+          width: size,
+          height: size,
+        }}
+      >
+        🌍
+      </div>
     );
-
-    setContributors(result);
-    setLoading(false);
-  }
-
-  async function toggleAnswers(person: Contributor) {
-    const key = `${person.name}__${person.country}`;
-
-    // Close
-    if (openContributor === key) {
-      setOpenContributor(null);
-      return;
-    }
-
-    // Open
-    setOpenContributor(key);
-
-    // Already loaded
-    if (contributorAnswers[key]) {
-      return;
-    }
-
-    setLoadingAnswers(key);
-
-    const { data: answerData, error: answerError } = await supabase
-      .from("answers")
-      .select("id, answer, created_at")
-      .eq("name", person.name)
-      .eq("country", person.country)
-      .order("created_at", { ascending: false });
-
-    if (answerError) {
-      console.error("Contributor answers error:", answerError);
-      setLoadingAnswers(null);
-      return;
-    }
-
-    if (!answerData || answerData.length === 0) {
-      setContributorAnswers((prev) => ({
-        ...prev,
-        [key]: [],
-      }));
-
-      setLoadingAnswers(null);
-      return;
-    }
-
-    const answerIds = answerData.map((item) => item.id);
-
-    const { data: likesData, error: likesError } = await supabase
-      .from("likes")
-      .select("answer_id")
-      .in("answer_id", answerIds);
-
-    if (likesError) {
-      console.error("Likes error:", likesError);
-    }
-
-    const likeCounts: Record<number, number> = {};
-
-    (likesData || []).forEach((like) => {
-      likeCounts[like.answer_id] =
-        (likeCounts[like.answer_id] || 0) + 1;
-    });
-
-    const finalAnswers: Answer[] = answerData.map((item) => ({
-      ...item,
-      likes: likeCounts[item.id] || 0,
-    }));
-
-    setContributorAnswers((prev) => ({
-      ...prev,
-      [key]: finalAnswers,
-    }));
-
-    setLoadingAnswers(null);
-  }
-
-  function formatDate(date: string) {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(date));
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-4xl px-5 py-10">
-
-        {/* TOP NAVIGATION */}
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href="/"
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-          >
-            ← Home
-          </a>
-
-          <a
-            href="/explore"
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-          >
-            Explore
-          </a>
-
-          <a
-            href="/world"
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-          >
-            World
-          </a>
-
-          <a
-            href="/popular"
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-          >
-            Popular
-          </a>
-
-          <a
-            href="/archive"
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-          >
-            Archive
-          </a>
-
-          <a
-            href="/profile"
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-          >
-            Profile
-          </a>
-        </div>
-
-        {/* HEADER */}
-        <div className="mt-10">
-          <h1 className="text-4xl font-bold">
-            Contributors
-          </h1>
-
-          <p className="mt-2 text-white/60">
-            The people making ONEQUESTION a world of answers.
-          </p>
-        </div>
-
-        {/* CONTRIBUTORS */}
-        <section className="mt-8">
-          {loading && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/60">
-              Loading contributors...
-            </div>
-          )}
-
-          {!loading && contributors.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/60">
-              No contributors yet.
-            </div>
-          )}
-
-          {!loading && contributors.length > 0 && (
-            <div className="space-y-4">
-              {contributors.map((person, index) => {
-                const key = `${person.name}__${person.country}`;
-
-                const isOpen = openContributor === key;
-                const answers = contributorAnswers[key] || [];
-
-return (
-  <AnimatedContributorCard
-    key={`${person.name}-${person.country}-${index}`}
-    index={index}
-  >
-    <ContributorCard
-      person={person}
-      index={index}
-      isOpen={isOpen}
-      answers={answers}
-      loading={loadingAnswers === key}
-      onToggle={() => toggleAnswers(person)}
-      formatDate={formatDate}
-    />
-  </AnimatedContributorCard>
-);
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* FOOTER */}
-        <footer className="mt-16 border-t border-white/10 pt-6 text-center text-sm text-white/30">
-          ONEQUESTION © 2026
-        </footer>
-      </div>
-    </main>
+    <div
+      className="
+        shrink-0
+        overflow-hidden
+        rounded-full
+        border
+        border-white/10
+        bg-black/20
+      "
+      style={{
+        width: size,
+        height: size,
+      }}
+    >
+      <img
+        src={`https://flagcdn.com/w160/${code}.png`}
+        alt={`${country} flag`}
+        className="h-full w-full object-cover"
+        draggable={false}
+      />
+    </div>
   );
 }
 
-/* ========================================================= */
-/* CONTRIBUTOR CARD */
-/* ========================================================= */
+/* =========================================================
+   COUNT UP NUMBER
+   Restarts from 0 every time it enters viewport
+========================================================= */
 
-function AnimatedContributorCard({
-  children,
-  index,
+function CountUp({
+  value,
+  duration = 1200,
 }: {
-  children: React.ReactNode;
-  index: number;
+  value: number;
+  duration?: number;
 }) {
-  const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const [count, setCount] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  /* -------------------------------------------------------
+     Detect viewport visibility
+  ------------------------------------------------------- */
 
   useEffect(() => {
     const element = ref.current;
@@ -314,314 +125,1470 @@ function AnimatedContributorCard({
     if (!element) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisible(true);
-          } else {
-            setVisible(false);
-          }
-        });
+      ([entry]) => {
+        setVisible(entry.isIntersecting);
+
+        if (!entry.isIntersecting) {
+          setCount(0);
+        }
       },
       {
-        threshold: 0.12,
-        rootMargin: "0px 0px -40px 0px",
-      }
+        threshold: 0.35,
+      },
     );
 
     observer.observe(element);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
-  return (
-    <div
-      ref={ref}
-      style={{
-        transitionDelay: `${index * 80}ms`,
-      }}
-      className={`
-        transition-all
-        duration-700
-        ease-out
-        ${
-          visible
-            ? "translate-y-0 scale-100 opacity-100"
-            : "translate-y-10 scale-[0.97] opacity-0"
-        }
-      `}
-    >
-      {children}
-    </div>
-  );
-}
-function ContributorCard({
-  person,
-  index,
-  isOpen,
-  answers,
-  loading,
-  onToggle,
-  formatDate,
-}: {
-  person: Contributor;
-  index: number;
-  isOpen: boolean;
-  answers: Answer[];
-  loading: boolean;
-  onToggle: () => void;
-  formatDate: (date: string) => string;
-}) {
-  const answersRef = useRef<HTMLDivElement>(null);
-
-  return (
-    <div
-      className={`
-        overflow-hidden
-        rounded-2xl
-        border
-        border-white/10
-        bg-white/5
-        transition-all
-        duration-500
-        hover:border-white/20
-        ${isOpen ? "shadow-2xl shadow-black/30" : ""}
-      `}
-    >
-      {/* MAIN CONTRIBUTOR */}
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-white/40">
-                #{index + 1}
-              </span>
-
-              <h2 className="text-xl font-semibold">
-                {person.name}
-              </h2>
-            </div>
-
-            <p className="mt-2 text-sm text-white/50">
-              {person.country}
-            </p>
-          </div>
-        </div>
-
-        {/* STATS */}
-        <div className="mt-5 flex flex-wrap gap-3">
-
-          {/* ANSWERS */}
-          <button
-            type="button"
-            onClick={onToggle}
-            className={`
-              group
-              rounded-full
-              border
-              px-4
-              py-2
-              text-sm
-              transition-all
-              duration-300
-              ${
-                isOpen
-                  ? "border-white/20 bg-white/10 text-white"
-                  : "border-white/10 bg-black/20 text-white/60 hover:border-white/20 hover:bg-white/10 hover:text-white"
-              }
-            `}
-          >
-            {person.answers}{" "}
-            {person.answers === 1 ? "answer" : "answers"}
-
-            <span
-              className={`
-                ml-2
-                inline-block
-                transition-transform
-                duration-500
-                ${
-                  isOpen
-                    ? "rotate-180"
-                    : "group-hover:translate-y-0.5"
-                }
-              `}
-            >
-              ↓
-            </span>
-          </button>
-
-          {/* LIKES */}
-          <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-white/60">
-            ❤️ {person.likes} likes
-          </div>
-        </div>
-      </div>
-
-      {/* ===================================================== */}
-      {/* EXPANDING ANSWERS AREA */}
-      {/* ===================================================== */}
-
-      <div
-        className={`
-          grid
-          transition-[grid-template-rows]
-          duration-700
-          ease-[cubic-bezier(0.22,1,0.36,1)]
-          ${
-            isOpen
-              ? "grid-rows-[1fr]"
-              : "grid-rows-[0fr]"
-          }
-        `}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div
-            ref={answersRef}
-            className={`
-              border-t
-              border-white/10
-              px-6
-              pb-6
-              pt-5
-              transition-all
-              duration-700
-              ${
-                isOpen
-                  ? "translate-y-0 opacity-100"
-                  : "-translate-y-5 opacity-0"
-              }
-            `}
-          >
-            {/* LOADING */}
-            {loading && (
-              <div className="space-y-3">
-                <div className="animate-pulse rounded-xl border border-white/10 bg-black/20 p-5">
-                  <div className="h-4 w-3/4 rounded bg-white/10" />
-                  <div className="mt-3 h-4 w-1/2 rounded bg-white/10" />
-                </div>
-
-                <div className="animate-pulse rounded-xl border border-white/10 bg-black/20 p-5">
-                  <div className="h-4 w-2/3 rounded bg-white/10" />
-                  <div className="mt-3 h-4 w-1/3 rounded bg-white/10" />
-                </div>
-              </div>
-            )}
-
-            {/* NO ANSWERS */}
-            {!loading && answers.length === 0 && (
-              <div className="rounded-xl border border-white/10 bg-black/20 p-5 text-sm text-white/50">
-                No answers found.
-              </div>
-            )}
-
-            {/* ANSWERS */}
-            {!loading && answers.length > 0 && (
-              <div className="space-y-3">
-                {answers.map((item, answerIndex) => (
-                  <AnswerItem
-                    key={item.id}
-                    answer={item}
-                    index={answerIndex}
-                    isOpen={isOpen}
-                    formatDate={formatDate}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ========================================================= */
-/* ANSWER ITEM */
-/* ========================================================= */
-
-function AnswerItem({
-  answer,
-  index,
-  isOpen,
-  formatDate,
-}: {
-  answer: Answer;
-  index: number;
-  isOpen: boolean;
-  formatDate: (date: string) => string;
-}) {
-  const [visible, setVisible] = useState(false);
-  const itemRef = useRef<HTMLDivElement>(null);
+  /* -------------------------------------------------------
+     Animate whenever it becomes visible
+  ------------------------------------------------------- */
 
   useEffect(() => {
-    if (!isOpen) {
-      setVisible(false);
+    if (!visible) return;
+
+    let startTime: number | null = null;
+    let animationFrame = 0;
+
+    setCount(0);
+
+    const animate = (timestamp: number) => {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      const progress = Math.min(
+        (timestamp - startTime) / duration,
+        1,
+      );
+
+      const easedProgress =
+        1 - Math.pow(1 - progress, 3);
+
+      const currentValue = Math.round(
+        value * easedProgress,
+      );
+
+      setCount(currentValue);
+
+      if (progress < 1) {
+        animationFrame =
+          requestAnimationFrame(animate);
+      } else {
+        setCount(value);
+      }
+    };
+
+    animationFrame =
+      requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [visible, value, duration]);
+
+  return (
+    <div ref={ref}>
+      {count}
+    </div>
+  );
+}
+
+/* =========================================================
+   ANIMATED SECTION
+========================================================= */
+
+function AnimatedSection({
+  children,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+}) {
+  return (
+    <ScrollReveal
+      delay={delay}
+      duration={800}
+      direction="up"
+    >
+      {children}
+    </ScrollReveal>
+  );
+}
+
+/* =========================================================
+   STAT CARD
+========================================================= */
+
+function StatCard({
+  value,
+  label,
+  delay,
+}: {
+  value: number;
+  label: string;
+  delay: number;
+}) {
+  return (
+    <AnimatedSection delay={delay}>
+      <div
+        className="
+          group
+          rounded-2xl
+          border
+          border-white/10
+          bg-white/[0.055]
+          px-5
+          py-6
+          text-center
+          backdrop-blur-md
+          transition-all
+          duration-300
+          hover:-translate-y-1
+          hover:border-white/20
+          hover:bg-white/[0.08]
+        "
+      >
+        <div
+          className="
+            text-3xl
+            font-bold
+            tracking-tight
+            text-white
+            sm:text-4xl
+          "
+        >
+          <CountUp value={value} />
+        </div>
+
+        <div
+          className="
+            mt-2
+            text-sm
+            font-medium
+            text-white/55
+          "
+        >
+          {label}
+        </div>
+      </div>
+    </AnimatedSection>
+  );
+}
+
+/* =========================================================
+   MAIN PAGE
+========================================================= */
+
+export default function ContributorsPage() {
+  const [contributors, setContributors] =
+    useState<Contributor[]>([]);
+
+  const [profileContributor, setProfileContributor] =
+    useState<Contributor | null>(null);
+
+  const [profileAnswers, setProfileAnswers] =
+    useState<Answer[]>([]);
+
+  const [search, setSearch] = useState("");
+
+  const [loading, setLoading] = useState(true);
+
+  const [profileLoading, setProfileLoading] =
+    useState(false);
+
+  /* =======================================================
+     LOAD CONTRIBUTORS
+  ======================================================= */
+
+  useEffect(() => {
+    const loadContributors = async () => {
+      setLoading(true);
+
+      const { data: answersData, error } =
+        await supabase
+          .from("answers")
+          .select(
+            "id, name, country, answer, created_at",
+          )
+          .order("created_at", {
+            ascending: false,
+          });
+
+      if (error) {
+        console.error(
+          "Contributor loading error:",
+          error,
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      const answers = answersData ?? [];
+
+      const answerIds = answers
+        .map((item) => item.id)
+        .filter(Boolean);
+
+      let likesData: {
+        answer_id: number;
+      }[] = [];
+
+      if (answerIds.length > 0) {
+        const { data } = await supabase
+          .from("likes")
+          .select("answer_id")
+          .in("answer_id", answerIds);
+
+        likesData = data ?? [];
+      }
+
+      const likesMap: Record<number, number> = {};
+
+      likesData.forEach((like) => {
+        likesMap[like.answer_id] =
+          (likesMap[like.answer_id] || 0) + 1;
+      });
+
+      const contributorMap = new Map<
+        string,
+        Contributor
+      >();
+
+      answers.forEach((item) => {
+        const name = item.name || "Anonymous";
+        const country = item.country || "Other";
+
+        const key = `${name}|||${country}`;
+
+        if (!contributorMap.has(key)) {
+          contributorMap.set(key, {
+            name,
+            country,
+            answers: 0,
+            likes: 0,
+          });
+        }
+
+        const contributor =
+          contributorMap.get(key)!;
+
+        contributor.answers += 1;
+
+        contributor.likes +=
+          likesMap[item.id] || 0;
+      });
+
+      const result = Array.from(
+        contributorMap.values(),
+      ).sort((a, b) => {
+        if (b.likes !== a.likes) {
+          return b.likes - a.likes;
+        }
+
+        return b.answers - a.answers;
+      });
+
+      setContributors(result);
+      setLoading(false);
+    };
+
+    loadContributors();
+  }, []);
+
+  /* =======================================================
+     LOAD PROFILE ANSWERS
+  ======================================================= */
+
+  const loadProfileAnswers = async (
+    contributor: Contributor,
+  ) => {
+    setProfileLoading(true);
+
+    const { data: answersData, error } =
+      await supabase
+        .from("answers")
+        .select(
+          "id, answer, created_at",
+        )
+        .eq("name", contributor.name)
+        .eq("country", contributor.country)
+        .order("created_at", {
+          ascending: false,
+        });
+
+    if (error) {
+      console.error(
+        "Profile answer loading error:",
+        error,
+      );
+
+      setProfileAnswers([]);
+      setProfileLoading(false);
       return;
     }
 
-    const element = itemRef.current;
+    const answers = answersData ?? [];
 
-    if (!element) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisible(true);
-          }
-        });
-      },
-      {
-        threshold: 0.15,
-        rootMargin: "0px 0px -50px 0px",
-      }
+    const answerIds = answers.map(
+      (item) => item.id,
     );
 
-    observer.observe(element);
+    let likesData: {
+      answer_id: number;
+    }[] = [];
 
-    return () => observer.disconnect();
-  }, [isOpen]);
+    if (answerIds.length > 0) {
+      const { data } = await supabase
+        .from("likes")
+        .select("answer_id")
+        .in("answer_id", answerIds);
+
+      likesData = data ?? [];
+    }
+
+    const likesMap: Record<number, number> = {};
+
+    likesData.forEach((like) => {
+      likesMap[like.answer_id] =
+        (likesMap[like.answer_id] || 0) + 1;
+    });
+
+    const formattedAnswers: Answer[] =
+      answers.map((item) => ({
+        id: item.id,
+        answer: item.answer,
+        created_at: item.created_at,
+        likes: likesMap[item.id] || 0,
+      }));
+
+    setProfileAnswers(formattedAnswers);
+    setProfileLoading(false);
+  };
+
+  /* =======================================================
+     OPEN PROFILE
+  ======================================================= */
+
+  const openProfile = (
+    contributor: Contributor,
+  ) => {
+    setProfileContributor(contributor);
+
+    const params = new URLSearchParams();
+
+    params.set("name", contributor.name);
+    params.set(
+      "country",
+      contributor.country,
+    );
+
+    window.history.pushState(
+      {},
+      "",
+      `/contributors?${params.toString()}`,
+    );
+
+    loadProfileAnswers(contributor);
+  };
+
+  /* =======================================================
+     CLOSE PROFILE
+  ======================================================= */
+
+  const closeProfile = () => {
+    setProfileContributor(null);
+    setProfileAnswers([]);
+
+    window.history.pushState(
+      {},
+      "",
+      "/contributors",
+    );
+  };
+
+  /* =======================================================
+     HOME BUTTON
+  ======================================================= */
+
+  const goHome = () => {
+    window.location.href = "/";
+  };
+
+  /* =======================================================
+     BROWSER BACK / FORWARD
+  ======================================================= */
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params =
+        new URLSearchParams(
+          window.location.search,
+        );
+
+      const name = params.get("name");
+      const country = params.get("country");
+
+      if (!name || !country) {
+        setProfileContributor(null);
+        setProfileAnswers([]);
+        return;
+      }
+
+      const contributor =
+        contributors.find(
+          (item) =>
+            item.name === name &&
+            item.country === country,
+        );
+
+      if (contributor) {
+        setProfileContributor(
+          contributor,
+        );
+
+        loadProfileAnswers(
+          contributor,
+        );
+      }
+    };
+
+    window.addEventListener(
+      "popstate",
+      handlePopState,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        handlePopState,
+      );
+    };
+  }, [contributors]);
+
+  /* =======================================================
+     LOAD PROFILE FROM URL
+  ======================================================= */
+
+  useEffect(() => {
+    if (contributors.length === 0) {
+      return;
+    }
+
+    const params =
+      new URLSearchParams(
+        window.location.search,
+      );
+
+    const name = params.get("name");
+    const country = params.get("country");
+
+    if (!name || !country) {
+      return;
+    }
+
+    const contributor =
+      contributors.find(
+        (item) =>
+          item.name === name &&
+          item.country === country,
+      );
+
+    if (contributor) {
+      setProfileContributor(
+        contributor,
+      );
+
+      loadProfileAnswers(
+        contributor,
+      );
+    }
+  }, [contributors]);
+
+  /* =======================================================
+     SEARCH
+  ======================================================= */
+
+  const filteredContributors =
+    useMemo(() => {
+      const term =
+        search.trim().toLowerCase();
+
+      if (!term) {
+        return contributors;
+      }
+
+      return contributors.filter(
+        (item) =>
+          item.name
+            .toLowerCase()
+            .includes(term) ||
+          item.country
+            .toLowerCase()
+            .includes(term),
+      );
+    }, [contributors, search]);
+
+  /* =======================================================
+     GLOBAL STATS
+  ======================================================= */
+
+  const totalContributors =
+    contributors.length;
+
+  const totalAnswers =
+    contributors.reduce(
+      (total, contributor) =>
+        total + contributor.answers,
+      0,
+    );
+
+  const totalLikes =
+    contributors.reduce(
+      (total, contributor) =>
+        total + contributor.likes,
+      0,
+    );
+
+  const totalCountries =
+    new Set(
+      contributors.map(
+        (contributor) =>
+          contributor.country,
+      ),
+    ).size;
+
+  /* =======================================================
+     PROFILE VIEW
+  ======================================================= */
+
+  if (profileContributor) {
+    return (
+      <main
+        className="
+          relative
+          min-h-screen
+          overflow-hidden
+          bg-transparent
+          px-4
+          py-8
+          sm:px-6
+          lg:px-8
+        "
+      >
+        {/* Sky background */}
+
+        <SkyBackground />
+
+        {/* Content above background */}
+
+        <div
+          className="
+            relative
+            z-10
+            mx-auto
+            w-full
+            max-w-5xl
+          "
+        >
+          {/* HOME + BACK */}
+
+          <div
+            className="
+              mb-8
+              flex
+              flex-wrap
+              gap-3
+            "
+          >
+            <button
+              onClick={goHome}
+              className="
+                inline-flex
+                items-center
+                gap-2
+                rounded-xl
+                border
+                border-white/10
+                bg-white/[0.05]
+                px-4
+                py-2
+                text-sm
+                text-white/70
+                backdrop-blur-md
+                transition
+                hover:bg-white/[0.09]
+                hover:text-white
+              "
+            >
+              ← Home
+            </button>
+
+            <button
+              onClick={closeProfile}
+              className="
+                inline-flex
+                items-center
+                gap-2
+                rounded-xl
+                border
+                border-white/10
+                bg-white/[0.05]
+                px-4
+                py-2
+                text-sm
+                text-white/70
+                backdrop-blur-md
+                transition
+                hover:bg-white/[0.09]
+                hover:text-white
+              "
+            >
+              ← Contributors
+            </button>
+          </div>
+
+          {/* PROFILE HEADER */}
+
+          <AnimatedSection>
+            <div
+              className="
+                rounded-3xl
+                border
+                border-white/10
+                bg-white/[0.055]
+                p-6
+                backdrop-blur-xl
+                sm:p-8
+              "
+            >
+              <div
+                className="
+                  flex
+                  flex-col
+                  gap-6
+                  sm:flex-row
+                  sm:items-center
+                "
+              >
+                {/* REAL FLAG */}
+
+                <CountryFlag
+                  country={
+                    profileContributor.country
+                  }
+                  size={82}
+                />
+
+                <div className="flex-1">
+                  <h1
+                    className="
+                      text-3xl
+                      font-bold
+                      tracking-tight
+                      text-white
+                    "
+                  >
+                    {
+                      profileContributor.name
+                    }
+                  </h1>
+
+                  <p
+                    className="
+                      mt-1
+                      text-white/55
+                    "
+                  >
+                    {
+                      profileContributor.country
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* PROFILE STATS */}
+
+              <div
+                className="
+                  mt-8
+                  grid
+                  grid-cols-3
+                  gap-3
+                "
+              >
+                <div
+                  className="
+                    rounded-2xl
+                    bg-white/[0.04]
+                    p-4
+                    text-center
+                  "
+                >
+                  <div
+                    className="
+                      text-2xl
+                      font-bold
+                      text-white
+                    "
+                  >
+                    {
+                      profileContributor.answers
+                    }
+                  </div>
+
+                  <div
+                    className="
+                      mt-1
+                      text-xs
+                      text-white/45
+                    "
+                  >
+                    Answers
+                  </div>
+                </div>
+
+                <div
+                  className="
+                    rounded-2xl
+                    bg-white/[0.04]
+                    p-4
+                    text-center
+                  "
+                >
+                  <div
+                    className="
+                      text-2xl
+                      font-bold
+                      text-white
+                    "
+                  >
+                    {
+                      profileContributor.likes
+                    }
+                  </div>
+
+                  <div
+                    className="
+                      mt-1
+                      text-xs
+                      text-white/45
+                    "
+                  >
+                    Likes
+                  </div>
+                </div>
+
+                <div
+                  className="
+                    flex
+                    flex-col
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-white/[0.04]
+                    p-4
+                    text-center
+                  "
+                >
+                  <CountryFlag
+                    country={
+                      profileContributor.country
+                    }
+                    size={38}
+                  />
+
+                  <div
+                    className="
+                      mt-2
+                      text-xs
+                      text-white/45
+                    "
+                  >
+                    Country
+                  </div>
+                </div>
+              </div>
+            </div>
+          </AnimatedSection>
+
+          {/* ANSWERS */}
+
+          <div className="mt-8">
+            <AnimatedSection>
+              <h2
+                className="
+                  mb-5
+                  text-xl
+                  font-semibold
+                  text-white
+                "
+              >
+                Answers
+              </h2>
+            </AnimatedSection>
+
+            {profileLoading ? (
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-white/10
+                  bg-white/[0.04]
+                  p-8
+                  text-center
+                  text-white/50
+                  backdrop-blur-md
+                "
+              >
+                Loading answers...
+              </div>
+            ) : profileAnswers.length ===
+              0 ? (
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-white/10
+                  bg-white/[0.04]
+                  p-8
+                  text-center
+                  text-white/50
+                  backdrop-blur-md
+                "
+              >
+                No answers found.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {profileAnswers.map(
+                  (answer, index) => (
+                    <AnimatedSection
+                      key={answer.id}
+                      delay={index * 70}
+                    >
+                      <div
+                        className="
+                          rounded-2xl
+                          border
+                          border-white/10
+                          bg-white/[0.045]
+                          p-5
+                          backdrop-blur-md
+                          transition
+                          hover:bg-white/[0.065]
+                        "
+                      >
+                        <p
+                          className="
+                            whitespace-pre-wrap
+                            text-sm
+                            leading-7
+                            text-white/80
+                          "
+                        >
+                          {answer.answer}
+                        </p>
+
+                        <div
+                          className="
+                            mt-4
+                            flex
+                            items-center
+                            justify-between
+                            border-t
+                            border-white/10
+                            pt-4
+                            text-xs
+                            text-white/40
+                          "
+                        >
+                          <span>
+                            {new Date(
+                              answer.created_at,
+                            ).toLocaleDateString()}
+                          </span>
+
+                          <span>
+                            ❤️{" "}
+                            {answer.likes}
+                          </span>
+                        </div>
+                      </div>
+                    </AnimatedSection>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* =======================================================
+     CONTRIBUTORS PAGE
+  ======================================================= */
 
   return (
-    <div
-      ref={itemRef}
-      style={{
-        transitionDelay: `${index * 100}ms`,
-      }}
-      className={`
-        rounded-xl
-        border
-        border-white/10
-        bg-black/20
-        p-5
-        transition-all
-        duration-700
-        ease-out
-        ${
-          visible
-            ? "translate-y-0 scale-100 opacity-100"
-            : "translate-y-8 scale-[0.98] opacity-0"
-        }
-      `}
+    <main
+      className="
+        relative
+        min-h-screen
+        overflow-hidden
+        bg-transparent
+        px-4
+        py-8
+        sm:px-6
+        lg:px-8
+      "
     >
-      {/* ANSWER */}
-      <p className="leading-7 text-white/90">
-        {answer.answer}
-      </p>
+      {/* ===================================================
+          REAL SKY BACKGROUND
+      =================================================== */}
 
-      {/* DATE + LIKES */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/40">
-        <span>
-          {formatDate(answer.created_at)}
-        </span>
+      <SkyBackground />
 
-        <span>•</span>
+      {/* ===================================================
+          CONTENT
+      =================================================== */}
 
-        <span className="text-white/60">
-          ❤️ {answer.likes}
-        </span>
+      <div
+        className="
+          relative
+          z-10
+          mx-auto
+          w-full
+          max-w-6xl
+        "
+      >
+        {/* =================================================
+            HOME BUTTON
+        ================================================= */}
+
+        <AnimatedSection>
+          <div className="mb-6">
+            <button
+              onClick={goHome}
+              className="
+                inline-flex
+                items-center
+                gap-2
+                rounded-xl
+                border
+                border-white/10
+                bg-white/[0.05]
+                px-4
+                py-2
+                text-sm
+                text-white/70
+                backdrop-blur-md
+                transition
+                hover:bg-white/[0.09]
+                hover:text-white
+              "
+            >
+              ← Home
+            </button>
+          </div>
+        </AnimatedSection>
+
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
+        <AnimatedSection>
+          <div className="mb-8">
+            <p
+              className="
+                mb-2
+                text-sm
+                font-medium
+                uppercase
+                tracking-[0.2em]
+                text-white/40
+              "
+            >
+              ONEQUESTION
+            </p>
+
+            <h1
+              className="
+                text-3xl
+                font-bold
+                tracking-tight
+                text-white
+                sm:text-4xl
+              "
+            >
+              Contributors
+            </h1>
+
+            <p
+              className="
+                mt-2
+                max-w-2xl
+                text-sm
+                leading-6
+                text-white/50
+              "
+            >
+              Meet the people sharing
+              their answers with the world.
+            </p>
+          </div>
+        </AnimatedSection>
+
+        {/* =================================================
+            MAIN STATS
+        ================================================= */}
+
+        <div
+          className="
+            mb-10
+            grid
+            grid-cols-2
+            gap-3
+            sm:grid-cols-4
+          "
+        >
+          <StatCard
+            value={totalContributors}
+            label="Contributors"
+            delay={0}
+          />
+
+          <StatCard
+            value={totalAnswers}
+            label="Answers"
+            delay={80}
+          />
+
+          <StatCard
+            value={totalLikes}
+            label="Likes"
+            delay={160}
+          />
+
+          <StatCard
+            value={totalCountries}
+            label="Countries"
+            delay={240}
+          />
+        </div>
+
+        {/* =================================================
+            SEARCH
+        ================================================= */}
+
+        <AnimatedSection delay={100}>
+          <div className="mb-8">
+            <div
+              className="
+                relative
+                overflow-hidden
+                rounded-2xl
+                border
+                border-white/10
+                bg-white/[0.045]
+                backdrop-blur-md
+              "
+            >
+              <input
+                type="text"
+                value={search}
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value,
+                  )
+                }
+                placeholder="Search contributors..."
+                className="
+                  w-full
+                  bg-transparent
+                  px-5
+                  py-4
+                  text-sm
+                  text-white
+                  outline-none
+                  placeholder:text-white/30
+                "
+              />
+            </div>
+          </div>
+        </AnimatedSection>
+
+        {/* =================================================
+            LOADING
+        ================================================= */}
+
+        {loading ? (
+          <div
+            className="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.04]
+              p-10
+              text-center
+              text-white/50
+              backdrop-blur-md
+            "
+          >
+            Loading contributors...
+          </div>
+        ) : filteredContributors.length ===
+          0 ? (
+          <div
+            className="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.04]
+              p-10
+              text-center
+              text-white/50
+              backdrop-blur-md
+            "
+          >
+            No contributors found.
+          </div>
+        ) : (
+          <>
+            {/* =================================================
+                TOP CONTRIBUTOR
+            ================================================= */}
+
+            <AnimatedSection delay={150}>
+              <div
+                className="
+                  mb-8
+                  overflow-hidden
+                  rounded-3xl
+                  border
+                  border-white/10
+                  bg-white/[0.055]
+                  p-6
+                  backdrop-blur-xl
+                  sm:p-8
+                "
+              >
+                <div
+                  className="
+                    mb-5
+                    text-xs
+                    font-semibold
+                    uppercase
+                    tracking-[0.18em]
+                    text-white/35
+                  "
+                >
+                  Top Contributor
+                </div>
+
+                <div
+                  className="
+                    flex
+                    flex-col
+                    gap-5
+                    sm:flex-row
+                    sm:items-center
+                    sm:justify-between
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-4
+                    "
+                  >
+                    {/* REAL FLAG */}
+
+                    <CountryFlag
+                      country={
+                        filteredContributors[0]
+                          .country
+                      }
+                      size={64}
+                    />
+
+                    <div>
+                      <h2
+                        className="
+                          text-xl
+                          font-bold
+                          text-white
+                        "
+                      >
+                        {
+                          filteredContributors[0]
+                            .name
+                        }
+                      </h2>
+
+                      <p
+                        className="
+                          mt-1
+                          text-sm
+                          text-white/45
+                        "
+                      >
+                        {
+                          filteredContributors[0]
+                            .country
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      openProfile(
+                        filteredContributors[0],
+                      )
+                    }
+                    className="
+                      rounded-xl
+                      border
+                      border-white/10
+                      bg-white/[0.06]
+                      px-5
+                      py-2.5
+                      text-sm
+                      font-medium
+                      text-white/75
+                      transition
+                      hover:bg-white/[0.1]
+                      hover:text-white
+                    "
+                  >
+                    View Profile →
+                  </button>
+                </div>
+
+                <div
+                  className="
+                    mt-6
+                    grid
+                    grid-cols-2
+                    gap-3
+                  "
+                >
+                  <div
+                    className="
+                      rounded-2xl
+                      bg-white/[0.04]
+                      p-4
+                    "
+                  >
+                    <div
+                      className="
+                        text-xl
+                        font-bold
+                        text-white
+                      "
+                    >
+                      {
+                        filteredContributors[0]
+                          .answers
+                      }
+                    </div>
+
+                    <div
+                      className="
+                        mt-1
+                        text-xs
+                        text-white/40
+                      "
+                    >
+                      Answers
+                    </div>
+                  </div>
+
+                  <div
+                    className="
+                      rounded-2xl
+                      bg-white/[0.04]
+                      p-4
+                    "
+                  >
+                    <div
+                      className="
+                        text-xl
+                        font-bold
+                        text-white
+                      "
+                    >
+                      {
+                        filteredContributors[0]
+                          .likes
+                      }
+                    </div>
+
+                    <div
+                      className="
+                        mt-1
+                        text-xs
+                        text-white/40
+                      "
+                    >
+                      Likes
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AnimatedSection>
+
+            {/* =================================================
+                CONTRIBUTOR LIST
+            ================================================= */}
+
+            <div className="space-y-3">
+              {filteredContributors.map(
+                (contributor, index) => (
+                  <AnimatedSection
+                    key={`${contributor.name}-${contributor.country}`}
+                    delay={
+                      100 + index * 60
+                    }
+                  >
+                    <div
+                      className="
+                        group
+                        rounded-2xl
+                        border
+                        border-white/10
+                        bg-white/[0.045]
+                        p-5
+                        backdrop-blur-md
+                        transition-all
+                        duration-300
+                        hover:-translate-y-0.5
+                        hover:border-white/15
+                        hover:bg-white/[0.065]
+                      "
+                    >
+                      <div
+                        className="
+                          flex
+                          flex-col
+                          gap-4
+                          sm:flex-row
+                          sm:items-center
+                        "
+                      >
+                        {/* REAL FLAG */}
+
+                        <CountryFlag
+                          country={
+                            contributor.country
+                          }
+                          size={48}
+                        />
+
+                        {/* NAME */}
+
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="
+                              truncate
+                              font-semibold
+                              text-white
+                            "
+                          >
+                            {
+                              contributor.name
+                            }
+                          </div>
+
+                          <div
+                            className="
+                              mt-1
+                              text-xs
+                              text-white/40
+                            "
+                          >
+                            {
+                              contributor.country
+                            }
+                          </div>
+                        </div>
+
+                        {/* STATS */}
+
+                        <div
+                          className="
+                            flex
+                            items-center
+                            gap-5
+                            text-sm
+                          "
+                        >
+                          <div>
+                            <span className="font-semibold text-white">
+                              {
+                                contributor.answers
+                              }
+                            </span>
+
+                            <span className="ml-1 text-white/35">
+                              answers
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="font-semibold text-white">
+                              {
+                                contributor.likes
+                              }
+                            </span>
+
+                            <span className="ml-1 text-white/35">
+                              likes
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* PROFILE */}
+
+                        <button
+                          onClick={() =>
+                            openProfile(
+                              contributor,
+                            )
+                          }
+                          className="
+                            rounded-xl
+                            border
+                            border-white/10
+                            bg-white/[0.04]
+                            px-4
+                            py-2
+                            text-xs
+                            font-medium
+                            text-white/60
+                            transition
+                            hover:bg-white/[0.09]
+                            hover:text-white
+                          "
+                        >
+                          Profile →
+                        </button>
+                      </div>
+                    </div>
+                  </AnimatedSection>
+                ),
+              )}
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </main>
   );
 }

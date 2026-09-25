@@ -13,6 +13,7 @@ type Answer = {
 
 export default function ProfilePage() {
   const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,6 +34,7 @@ export default function ProfilePage() {
     }
 
     setEmail(user.email || "");
+    setUserId(user.id);
 
     const { data, error } = await supabase
       .from("answers")
@@ -117,6 +119,14 @@ export default function ProfilePage() {
             <p className="mt-2 text-white/60">
               {email}
             </p>
+            {userId && (
+  <a
+    href={`/profile/${userId}`}
+    className="mt-4 inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+  >
+    View Public Profile →
+  </a>
+)}
           </div>
         </ScrollReveal>
 
