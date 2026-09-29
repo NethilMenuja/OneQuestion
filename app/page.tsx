@@ -699,6 +699,51 @@ export default function Home() {
     };
   }, [user]);
 
+  useEffect(() => {
+  if (!user) {
+    setBookmarkedIds([]);
+    return;
+  }
+
+  const loadBookmarks = async () => {
+    const { data, error } = await supabase
+      .from("bookmarks")
+      .select("answer_id")
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Bookmarks sync load error:", error);
+      return;
+    }
+
+    setBookmarkedIds(
+      (data ?? []).map((bookmark) => bookmark.answer_id)
+    );
+  };
+
+  loadBookmarks();
+
+  const channel = supabase
+    .channel("site-bookmarks-sync")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "bookmarks",
+        filter: `user_id=eq.${user.id}`,
+      },
+      () => {
+        loadBookmarks();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
