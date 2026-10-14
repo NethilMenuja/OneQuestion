@@ -1661,6 +1661,29 @@ export default function Home() {
       }
     }
 
+    const { data: pushResult, error: pushError } =
+  await supabase.functions.invoke(
+    "send-push-notification",
+    {
+      body: {
+        answerId,
+        replyId: data.id,
+      },
+    }
+  );
+
+if (pushError) {
+  console.error(
+    "Website reply push error:",
+    pushError
+  );
+} else if (!pushResult?.success) {
+  console.warn(
+    "Website reply push result:",
+    pushResult
+  );
+}
+
     if (data) {
       setReplies(
         (currentReplies) => [
